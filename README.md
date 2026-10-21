@@ -42,7 +42,7 @@ Aplicación web para organizar beneficiarios, programas, inscripciones, activida
 ### Requisitos
 
 - Un proyecto de Supabase.
-- Python instalado para el servidor local (`py -m http.server`), o una extensión como Live Server.
+- Windows PowerShell, incluido en Windows, para el servidor local.
 - Una clave pública `sb_publishable_...` del proyecto. La clave `anon` pública legada también es compatible.
 
 ### 1. Descargar el proyecto
@@ -74,13 +74,9 @@ La clave publicable está diseñada para usarse desde el navegador y será visib
 
 ### 4. Iniciar en Windows
 
-Abre `INICIAR_SISTEMA_REAL.bat`, o ejecuta estos comandos desde la carpeta del proyecto:
+Abre `INICIAR_SISTEMA_REAL.bat`. Se abrirá una ventana del servidor y el navegador visitará el sitio automáticamente en <http://localhost:5500>. Mantén abierta la ventana del servidor mientras usas la aplicación; pulsa `Ctrl+C` para detenerlo.
 
-```powershell
-py -m http.server 5500
-```
-
-Visita <http://localhost:5500>. La aplicación real es `index.html`.
+La aplicación real es `index.html`. Si el puerto 5500 ya está ocupado, cierra la otra aplicación y vuelve a ejecutar el iniciador.
 
 Para ver la demostración local con datos ficticios, abre `INICIAR_DEMO.bat` o `VISTA_PREVIA.html`. La demo está separada y no debe usarse para registrar información real.
 

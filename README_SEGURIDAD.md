@@ -18,7 +18,7 @@
    ```
 
    **PROHIBIDO** pegar claves `service_role`, `sb_secret_`, el password de PostgreSQL o contraseñas de personas en `config.js`. Esa información nunca debe salir del servidor.
-4. Inicia la app en HTTP: desde esta carpeta abre una terminal y ejecuta `py -m http.server 5500`; visita `http://localhost:5500`. También puedes publicar la carpeta en hosting HTTPS con CSP/headers aplicados (ver abajo).
+4. En Windows, inicia la app en HTTP abriendo `INICIAR_SISTEMA_REAL.bat`; se abrirá el navegador en `http://localhost:5500`. Mantén la ventana del servidor abierta mientras trabajas. También puedes publicar la carpeta en hosting HTTPS con CSP/headers aplicados (ver abajo).
 5. Configura en **Authentication → URL Configuration** el Site URL y los Redirect URLs de tu sitio (para recuperación y confirmación). Asegúrate de que la URL coincida con la del navegador.
 6. En la web abre **Solicitar acceso**, registra tu **correo propio** con una contraseña única y confírmalo. En SQL Editor habilita **solo a esa cuenta**:
 
@@ -96,7 +96,7 @@ Luego prueba con tres cuentas (admin, coordinador, operador). Como operador, int
 
 ```powershell
 cd ASOCULSOR_Produccion_Segura
-py -m http.server 5500
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\servidor_local.ps1 -AbrirNavegador
 ```
 
 En VS Code también funciona **Live Server**. Los endpoints de autenticación y PostgreSQL corren en Supabase, no en tu equipo.

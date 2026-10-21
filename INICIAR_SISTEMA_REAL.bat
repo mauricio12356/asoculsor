@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-py -m http.server 5500
-pause
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0servidor_local.ps1" -AbrirNavegador
+if errorlevel 1 pause
