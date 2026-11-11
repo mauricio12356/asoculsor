@@ -1,0 +1,16 @@
+# ASOCULSOR - publicación gratuita del frontend estático en Render.
+# El backend de esta versión es Supabase Auth/PostgreSQL/Storage, no FastAPI.
+# No se publica SQL, documentación interna ni archivos secretos.
+services:
+  - type: web
+    name: asoculsor-gestion
+    runtime: static
+    repo: https://github.com/mauricio12356/asoculsor
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: |
+      mkdir -p site
+      cp index.html config.js site/
+      cp -R assets site/
+      touch site/.nojekyll
+    staticPublishPath: site
