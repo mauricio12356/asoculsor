@@ -84,10 +84,11 @@ const sortRows = (table,arr) => arr.slice().sort((a,b) => String(b.created_at||b
 async function request(path,opts={},retry=true){
  let session=state.session;
  const headers={'apikey':KEY,...(session?.access_token && !opts.noAuth?{'Authorization':`Bearer ${session.access_token}`}:{}),...(opts.headers||{})};
- let resp;try{resp=await fetch(`${BASE}${path}`,{...opts,headers,cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'})}catch{throw Error('No se pudo conectar a Supabase. Revisa tu conexión y URL.')} 
+ let resp;try{resp=await fetch(`${BASE}${path}`,{...opts,headers,cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'})}catch(err){if(opts.signal?.aborted)throw Error('La solicitud tardó demasiado. El servicio de correo no respondió en 25 segundos. Revisa el SMTP de Supabase.');throw Error('No se pudo conectar a Supabase. Revisa tu conexión y URL.')} 
  if(resp.status===401 && retry && session?.refresh_token){await refreshSession();return request(path,opts,false)}
  const body=await resp.text();let parsed=null;try{parsed=body?JSON.parse(body):null}catch{parsed=body}
  if(!resp.ok){
+  if(resp.status===504 && path.startsWith('/auth/v1/recover'))throw Error('HTTP 504: el servidor SMTP no responde a tiempo. Verifica Host, puerto, usuario y contraseña de aplicación en Supabase. No repitas muchas solicitudes seguidas.');
   const code=String(parsed?.code||parsed?.error_code||parsed?.error||'').toLowerCase();
   if(resp.status===429&&(code.includes('email')||String(parsed?.msg||parsed?.message||'').toLowerCase().includes('email rate limit'))){
    throw Error('Se alcanzó el límite temporal de correos de Supabase. No solicites más enlaces por ahora; vuelve a intentarlo cuando se restablezca el límite o contacta al administrador para activar SMTP de Brevo.');
@@ -100,7 +101,7 @@ async function refreshSession(){const refresh=state.session?.refresh_token;if(!r
  const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refresh})},false);state.session=data;sessionSave(data);return data;}
 async function login(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})},false);state.session=data;sessionSave(data);await loadProfile();}
 async function register(name,email,password){const destination=location.origin+location.pathname;return request('/auth/v1/signup?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{full_name:name}})},false)}
-async function recovery(email){const destination=location.origin+location.pathname;return request('/auth/v1/recover?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email})},false)}
+async function recovery(email){const destination=location.origin+location.pathname;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);try{return await request('/auth/v1/recover?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email}),signal:controller.signal},false)}finally{clearTimeout(timer)}}
 async function setPassword(password){return request('/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})})}
 async function loadProfile(){if(!REAL){state.profile=byId('profiles','demo-admin')||demoDB().profiles[0];return}
  const userId=state.session?.user?.id; const list=await request(`/rest/v1/profiles?id=eq.${enc(userId)}&select=*`);
@@ -443,7 +444,7 @@ async function handleSubmit(e){const form=e.target;if(!form.matches('[data-form]
    if(table==='documents'&&!id){const file=formData.get('file');await uploadDoc(file,payload)}else await mutate(table,payload,id);
    state.modal=null;state.busy=false;state.loading=true;render();await loadData();if(table==='profiles')await loadProfile();state.loading=false;render();toast(id?'Registro actualizado correctamente.':'Registro creado correctamente.');
   }
- }catch(error){state.loading=false;render();toast(error.message||'Ocurrió un error al guardar.',true)}finally{state.busy=false;const el=$('form[data-form] [type="submit"]');if(el)el.disabled=false;}
+ }catch(error){state.loading=false;if(form.dataset.form==='auth'){state.authError=error.message||'No se pudo completar la solicitud.';}else{render();toast(error.message||'Ocurrió un error al guardar.',true)}}finally{state.busy=false;if(form.dataset.form==='auth'){render()}else{const el=$('form[data-form] [type="submit"]');if(el)el.disabled=false;}}
 }
 async function boot(){
  document.addEventListener('click',handleClick);document.addEventListener('submit',handleSubmit);
