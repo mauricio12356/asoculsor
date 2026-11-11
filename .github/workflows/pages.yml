@@ -1,0 +1,46 @@
+name: Publicar ASOCULSOR en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'config.js'
+      - 'assets/**'
+      - 'VISTA_PREVIA.html'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Obtener sitio
+        uses: actions/checkout@v4
+      - name: Preparar archivos públicos (sin archivos privados ni SQL)
+        run: |
+          mkdir -p _site
+          cp index.html config.js VISTA_PREVIA.html _site/
+          cp -R assets _site/
+          touch _site/.nojekyll
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+      - name: Subir sitio
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: '_site'
+      - name: Publicar sitio
+        id: deployment
+        uses: actions/deploy-pages@v4
