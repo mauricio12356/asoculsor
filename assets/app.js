@@ -87,7 +87,13 @@ async function request(path,opts={},retry=true){
  let resp;try{resp=await fetch(`${BASE}${path}`,{...opts,headers,cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'})}catch{throw Error('No se pudo conectar a Supabase. Revisa tu conexión y URL.')} 
  if(resp.status===401 && retry && session?.refresh_token){await refreshSession();return request(path,opts,false)}
  const body=await resp.text();let parsed=null;try{parsed=body?JSON.parse(body):null}catch{parsed=body}
- if(!resp.ok)throw Error(parsed?.msg||parsed?.message||parsed?.error_description||parsed?.error||`Error HTTP ${resp.status}`);
+ if(!resp.ok){
+  const code=String(parsed?.code||parsed?.error_code||parsed?.error||'').toLowerCase();
+  if(resp.status===429&&(code.includes('email')||String(parsed?.msg||parsed?.message||'').toLowerCase().includes('email rate limit'))){
+   throw Error('Se alcanzó el límite temporal de correos de Supabase. No solicites más enlaces por ahora; vuelve a intentarlo cuando se restablezca el límite o contacta al administrador para activar SMTP de Brevo.');
+  }
+  throw Error(parsed?.msg||parsed?.message||parsed?.error_description||parsed?.error||`Error HTTP ${resp.status}`);
+ }
  return parsed;
 }
 async function refreshSession(){const refresh=state.session?.refresh_token;if(!refresh)throw Error('La sesión caducó. Inicia sesión de nuevo.');
