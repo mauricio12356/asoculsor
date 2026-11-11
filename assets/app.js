@@ -30,7 +30,7 @@ const sessionClear = () => {try{sessionStorage.removeItem('asoculsor_session')}c
 safeRemove('asoculsor_session');
 const uid = () => crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const imageTypes = new Set(['application/pdf','image/png','image/jpeg','application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
-let state = {page:'dashboard',session:null,profile:null,data:{},modal:null,loading:true,search:'',filter:'',sidebar:false,authMode:'login',recovery:false,busy:false,toast:[],attendanceActivity:'',attendanceDraft:{}};
+let state = {page:'dashboard',session:null,profile:null,data:{},modal:null,loading:true,search:'',filter:'',sidebar:false,authMode:'login',recovery:false,authError:'',busy:false,toast:[],attendanceActivity:'',attendanceDraft:{}};
 let tmpStore;
 const TABS = [
   {id:'dashboard',text:'Panel general',icon:'▦',group:'PRINCIPAL'},
@@ -94,7 +94,7 @@ async function refreshSession(){const refresh=state.session?.refresh_token;if(!r
  const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refresh})},false);state.session=data;sessionSave(data);return data;}
 async function login(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})},false);state.session=data;sessionSave(data);await loadProfile();}
 async function register(name,email,password){return request('/auth/v1/signup',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{full_name:name}})},false)}
-async function recovery(email){return request('/auth/v1/recover?redirect_to='+enc(location.origin+location.pathname),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email})},false)}
+async function recovery(email){const destination=CFG.passwordResetRedirect||(location.origin+location.pathname);return request('/auth/v1/recover?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email})},false)}
 async function setPassword(password){return request('/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})})}
 async function loadProfile(){if(!REAL){state.profile=byId('profiles','demo-admin')||demoDB().profiles[0];return}
  const userId=state.session?.user?.id; const list=await request(`/rest/v1/profiles?id=eq.${enc(userId)}&select=*`);
@@ -162,7 +162,7 @@ function renderAuth(){
  const mode=state.recovery?'change':state.authMode;
  const titles={login:['Bienvenido de nuevo','Ingresa con tu cuenta institucional para gestionar la fundación.'],register:['Solicitar una cuenta','Tu acceso deberá ser autorizado por un administrador.'],forgot:['Recuperar contraseña','Recibirás un enlace para crear una contraseña nueva.'],change:['Establecer contraseña','Crea una contraseña segura para acceder a tu cuenta.']};
  const [title,desc]=titles[mode]||titles.login;
- return `<div class="auth-page"><section class="auth-left"><div class="brand"><div class="brand-mark">A</div><div><div class="brand-title">ASOCULSOR</div><div class="brand-small">CENTRO CUATRO DE ENERO</div></div></div><div class="auth-hero"><h1>Una gestión más humana, <em>conectada y eficiente.</em></h1><p>Administra los programas, la atención, las actividades y los recursos de la fundación desde una plataforma centralizada y segura.</p><div class="auth-features"><span>✓ Gestión integral</span><span>✓ Seguimiento centralizado</span><span>✓ Reportes</span></div></div><div class="auth-footer">© ${new Date().getFullYear()} Fundación ASOCULSOR · Plataforma de gestión</div></section><section class="auth-right"><div class="auth-card"><div class="eyebrow">PLATAFORMA ADMINISTRATIVA</div><h2>${title}</h2><p>${desc}</p>${DEMO?'<div class="notice warning">Vista de prueba sin Supabase. Los datos del modo demo son ficticios y se guardan localmente en este navegador.</div>':''}<form data-form="auth" autocomplete="on">${mode==='register'?`<div class="field"><label>Nombre completo</label><input name="full_name" type="text" placeholder="Tu nombre y apellido" required maxlength="150" /></div>`:''}${mode!=='change'?`<div class="field"><label>Correo electrónico</label><input name="email" type="email" placeholder="nombre@fundacion.org" required autocomplete="email" /></div>`:''}${['login','register','change'].includes(mode)?`<div class="field"><label>${mode==='change'?'Nueva contraseña':'Contraseña'}</label><input name="password" type="password" minlength="${mode==='login'?8:12}" required autocomplete="${mode==='login'?'current-password':'new-password'}" placeholder="${mode==='login'?'Tu contraseña':'Mínimo 12 caracteres'}" /></div>`:''}<button class="button primary" type="submit" ${state.busy?'disabled':''}>${state.busy?'Procesando...':({login:'Iniciar sesión',register:'Crear solicitud',forgot:'Enviar enlace',change:'Guardar contraseña'})[mode]}</button></form>${DEMO?`<div class="separator">o</div><button type="button" class="button demo-btn" data-action="demo-login">✦ Entrar a la demostración</button>`:''}<div class="auth-links">${mode==='login'?'<button class="auth-link" data-auth="forgot">¿Olvidaste tu contraseña?</button><button class="auth-link" data-auth="register">Solicitar acceso</button>':'<button class="auth-link" data-auth="login">← Volver al inicio de sesión</button>'}</div></div></section></div>`;
+ return `<div class="auth-page"><section class="auth-left"><div class="brand"><div class="brand-mark">A</div><div><div class="brand-title">ASOCULSOR</div><div class="brand-small">CENTRO CUATRO DE ENERO</div></div></div><div class="auth-hero"><h1>Una gestión más humana, <em>conectada y eficiente.</em></h1><p>Administra los programas, la atención, las actividades y los recursos de la fundación desde una plataforma centralizada y segura.</p><div class="auth-features"><span>✓ Gestión integral</span><span>✓ Seguimiento centralizado</span><span>✓ Reportes</span></div></div><div class="auth-footer">© ${new Date().getFullYear()} Fundación ASOCULSOR · Plataforma de gestión</div></section><section class="auth-right"><div class="auth-card"><div class="eyebrow">PLATAFORMA ADMINISTRATIVA</div><h2>${title}</h2><p>${desc}</p>${state.authError?`<div class="notice warning" role="alert">${h(state.authError)}</div>`:''}${DEMO?'<div class="notice warning">Vista de prueba sin Supabase. Los datos del modo demo son ficticios y se guardan localmente en este navegador.</div>':''}<form data-form="auth" autocomplete="on">${mode==='register'?`<div class="field"><label>Nombre completo</label><input name="full_name" type="text" placeholder="Tu nombre y apellido" required maxlength="150" /></div>`:''}${mode!=='change'?`<div class="field"><label>Correo electrónico</label><input name="email" type="email" placeholder="nombre@fundacion.org" required autocomplete="email" /></div>`:''}${['login','register','change'].includes(mode)?`<div class="field"><label>${mode==='change'?'Nueva contraseña':'Contraseña'}</label><input name="password" type="password" minlength="${mode==='login'?8:12}" required autocomplete="${mode==='login'?'current-password':'new-password'}" placeholder="${mode==='login'?'Tu contraseña':'Mínimo 12 caracteres'}" /></div>`:''}<button class="button primary" type="submit" ${state.busy?'disabled':''}>${state.busy?'Procesando...':({login:'Iniciar sesión',register:'Crear solicitud',forgot:'Enviar enlace',change:'Guardar contraseña'})[mode]}</button></form>${DEMO?`<div class="separator">o</div><button type="button" class="button demo-btn" data-action="demo-login">✦ Entrar a la demostración</button>`:''}<div class="auth-links">${mode==='login'?'<button class="auth-link" data-auth="forgot">¿Olvidaste tu contraseña?</button><button class="auth-link" data-auth="register">Solicitar acceso</button>':'<button class="auth-link" data-auth="login">← Volver al inicio de sesión</button>'}</div></div></section></div>`;
 }
 function renderDashboard(){const b=state.data.beneficiaries||[],p=state.data.programs||[],a=state.data.activities||[],ap=state.data.appointments||[],don=state.data.donations||[];
  const activeB=b.filter(x=>x.status==='activo').length,activeP=p.filter(x=>x.status==='activo').length,pending=ap.filter(x=>x.status==='programada'&&new Date(x.starts_at)>=new Date(new Date().setHours(0,0,0,0))).length;
@@ -395,7 +395,7 @@ async function exit(){if(REAL&&state.session){try{await request('/auth/v1/logout
 function fallbackDemo(){state.session={user:{id:'demo-admin',email:'admin@asoculsor.demo'},access_token:'demo',refresh_token:'demo'};safeSet('asoculsor_demo_signed','true');state.data=demoDB();state.profile=demoDB().profiles.find(x=>x.id==='demo-admin')||demoDB().profiles[0];state.authMode='login';state.loading=false;render();}
 async function handleClick(e){const target=e.target.closest('[data-page],[data-auth],[data-action]');if(!target)return;
  if(target.classList.contains('modal-backdrop')&&e.target!==target)return;const {page,auth,action,table,id}=target.dataset;
- if(page){if(role()==='operador'&&['donations','documents','reports','profiles'].includes(page))return;resetNavigation(page);return}if(auth){state.authMode=auth;state.recovery=false;render();return}
+ if(page){if(role()==='operador'&&['donations','documents','reports','profiles'].includes(page))return;resetNavigation(page);return}if(auth){state.authMode=auth;state.recovery=false;state.authError='';render();return}
  if(action==='close-modal'){state.modal=null;render();return}
  if(action==='toggle-sidebar'){state.sidebar=!state.sidebar;render();return}
  if(action==='close-sidebar'){state.sidebar=false;render();return}
@@ -425,7 +425,7 @@ async function handleSubmit(e){const form=e.target;if(!form.matches('[data-form]
    if(!REAL){if(mode==='login'){fallbackDemo();toast('Has ingresado a la demostración.');return}throw Error('Para cuentas y recuperación reales, primero conecta Supabase.');}
    if(mode==='login'){await login(email,pass);if(!state.profile?.active){await exit();throw Error('Tu cuenta existe, pero aún debe ser habilitada por un administrador.')}await loadData();state.authMode='login';render();toast('Sesión iniciada correctamente.');}
    else if(mode==='register'){if(pass.length<12)throw Error('Usa una contraseña de al menos 12 caracteres.');await register(String(formData.get('full_name')||'').trim(),email,pass);state.authMode='login';render();toast('Solicitud enviada. Confirma tu correo si es necesario y espera la habilitación del administrador.');}
-   else if(mode==='forgot'){await recovery(email);state.authMode='login';render();toast('Si el correo está registrado, recibirás instrucciones de recuperación.');}
+   else if(mode==='forgot'){await recovery(email);state.authError='';state.authMode='login';render();toast('Si el correo está registrado, recibirás instrucciones de recuperación.');}
    else if(mode==='change'){if(pass.length<12)throw Error('La contraseña debe tener mínimo 12 caracteres.');await setPassword(pass);state.session.user=await request('/auth/v1/user');sessionSave(state.session);state.recovery=false;window.history.replaceState({},'',location.pathname);await loadProfile();if(state.profile?.active){await loadData()}else{await exit();throw Error('Contraseña actualizada. El administrador debe habilitar tu acceso.')}render();toast('Contraseña actualizada.');}
   }else if(form.dataset.form==='record'){
    const table=form.dataset.table,id=form.dataset.id||null;const spec=DEFINITIONS[table];if(!canEdit(table)&&!(table==='profiles'&&isAdmin()))throw Error('No tienes autorización.');
@@ -446,7 +446,40 @@ async function boot(){
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.modal){state.modal=null;render()}});
  if(!REAL){if(DEMO&&safeGet('asoculsor_demo_signed')==='true'){fallbackDemo()}else{state.loading=false;render()}return}
  try{
-  const hash=new URLSearchParams(location.hash.slice(1));if(hash.get('access_token')&&hash.get('refresh_token')){state.session={access_token:hash.get('access_token'),refresh_token:hash.get('refresh_token'),user:null};sessionSave(state.session);window.history.replaceState({},'',location.pathname+location.search);if(hash.get('type')==='recovery'||hash.get('type')==='invite'){state.recovery=true;state.loading=false;render();return}}
+  const hash=new URLSearchParams(location.hash.slice(1));
+  const query=new URLSearchParams(location.search);
+  const authError=hash.get('error')||query.get('error');
+  if(authError){
+   const code=hash.get('error_code')||query.get('error_code')||authError;
+   state.authError=code==='otp_expired'?'El enlace para cambiar la contraseña venció o ya fue utilizado. Solicita uno nuevo.':'El enlace de recuperación no es válido. Solicita uno nuevo desde esta página.';
+   state.authMode='forgot';state.session=null;sessionClear();
+   window.history.replaceState({},'',location.pathname);
+   state.loading=false;render();return;
+  }
+  if(hash.get('access_token')&&hash.get('refresh_token')){
+   state.session={access_token:hash.get('access_token'),refresh_token:hash.get('refresh_token'),user:null};
+   const kind=hash.get('type');
+   if(kind==='recovery'||kind==='invite'){
+    try{
+     state.session.user=await request('/auth/v1/user',{},false);
+     sessionSave(state.session);
+     window.history.replaceState({},'',location.pathname);
+     state.recovery=true;state.authError='';state.loading=false;render();return;
+    }catch{
+     state.session=null;sessionClear();
+     window.history.replaceState({},'',location.pathname);
+     state.authMode='forgot';state.authError='El enlace expiró o no pudo validarse. Solicita un nuevo correo de recuperación.';
+     state.loading=false;render();return;
+    }
+   }
+   sessionSave(state.session);
+   window.history.replaceState({},'',location.pathname+location.search);
+  }else if(hash.get('type')==='recovery'||query.get('type')==='recovery'){
+   window.history.replaceState({},'',location.pathname);
+   state.authMode='forgot';state.authError='No se recibió una sesión válida de recuperación. Solicita otro enlace.';
+   state.loading=false;render();return;
+  }
+
   const stored=sessionGet();if(stored){state.session=JSON.parse(stored);try{const me=await request('/auth/v1/user');state.session.user=me;sessionSave(state.session);await loadProfile();if(!state.profile?.active){state.profile=null;state.session=null;sessionClear()}else await loadData()}catch(err){if(state.session?.refresh_token){try{await refreshSession();const me=await request('/auth/v1/user');state.session.user=me;await loadProfile();if(!state.profile?.active){state.profile=null;state.session=null;sessionClear()}else await loadData()}catch{state.profile=null;state.session=null;sessionClear()}}}}
  }catch(err){state.profile=null;state.session=null;sessionClear();toast(err.message,true)}
  state.loading=false;render();
