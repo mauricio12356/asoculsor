@@ -93,8 +93,8 @@ async function request(path,opts={},retry=true){
 async function refreshSession(){const refresh=state.session?.refresh_token;if(!refresh)throw Error('La sesión caducó. Inicia sesión de nuevo.');
  const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refresh})},false);state.session=data;sessionSave(data);return data;}
 async function login(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})},false);state.session=data;sessionSave(data);await loadProfile();}
-async function register(name,email,password){return request('/auth/v1/signup',{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{full_name:name}})},false)}
-async function recovery(email){const destination=CFG.passwordResetRedirect||(location.origin+location.pathname);return request('/auth/v1/recover?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email})},false)}
+async function register(name,email,password){const destination=location.origin+location.pathname;return request('/auth/v1/signup?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{full_name:name}})},false)}
+async function recovery(email){const destination=location.origin+location.pathname;return request('/auth/v1/recover?redirect_to='+enc(destination),{method:'POST',noAuth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({email})},false)}
 async function setPassword(password){return request('/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})})}
 async function loadProfile(){if(!REAL){state.profile=byId('profiles','demo-admin')||demoDB().profiles[0];return}
  const userId=state.session?.user?.id; const list=await request(`/rest/v1/profiles?id=eq.${enc(userId)}&select=*`);
